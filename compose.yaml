@@ -1,0 +1,71 @@
+name: hefesto-firmas
+x-pg: &pg
+  PGHOST: ${DB_HOST:?Configurar DB_HOST}
+  PGPORT: "5432"
+  PGDATABASE: postgres
+  PGUSER: ${DB_USER:-docuseal_app}
+  PGPASSWORD: ${DB_PASSWORD:?Configurar clave}
+  PGSSLMODE: verify-full
+  PGSSLROOTCERT: /certs/ca.crt
+  PGCONNECT_TIMEOUT: "15"
+services:
+  preflight:
+    image: postgres:17-alpine
+    restart: "no"
+    environment:
+      <<: *pg
+      SUPABASE_DEDICATED_CONFIRMED: ${SUPABASE_DEDICATED_CONFIRMED:-false}
+      SUPABASE_DATA_API_DISABLED: ${SUPABASE_DATA_API_DISABLED:-false}
+    volumes: [./certs:/certs:ro, ./ops:/opt/hefesto:ro]
+    entrypoint: [sh, /opt/hefesto/preflight.sh]
+  permissions:
+    image: postgres:17-alpine
+    restart: "no"
+    user: "0"
+    entrypoint: [sh, -ec, 'chown -R 2000:2000 /files; chmod 700 /files']
+    volumes: [files:/files]
+  app:
+    image: docuseal/docuseal:3.3.2@sha256:fcfa6b2dbf6d8847396f59f8af9591785c66152154337a54d1c1748b4d9366b3
+    restart: unless-stopped
+    stop_grace_period: 90s
+    depends_on:
+      preflight: {condition: service_completed_successfully}
+      permissions: {condition: service_completed_successfully}
+    entrypoint: [sh, /opt/hefesto/start.sh]
+    environment:
+      RAILS_ENV: production
+      WORKDIR: /data/docuseal
+      APP_URL: ${PUBLIC_URL:?Configurar URL}
+      FORCE_SSL: "true"
+      SECRET_KEY_BASE: ${SECRET_KEY_BASE:?Generar secreto}
+      ENCRYPTION_SECRET: ${ENCRYPTION_SECRET:?Generar secreto}
+      DATABASE_URL: postgresql://${DB_USER:-docuseal_app}:${DB_PASSWORD}@${DB_HOST}:5432/postgres?sslmode=verify-full&sslrootcert=/certs/ca.crt&connect_timeout=15
+      RAILS_MAX_THREADS: "5"
+      SIDEKIQ_THREADS: "3"
+      WEB_CONCURRENCY: "0"
+      INITIAL_SETUP_COMPLETE: ${INITIAL_SETUP_COMPLETE:-false}
+      SMTP_READY: ${SMTP_READY:-false}
+      BOOTSTRAP_MODE: "false"
+      SMTP_ADDRESS: ${SMTP_HOST:-mailpit}
+      SMTP_PORT: ${SMTP_PORT:-465}
+      SMTP_USERNAME: ${SMTP_USERNAME:-}
+      SMTP_PASSWORD: ${SMTP_PASSWORD:-}
+      SMTP_FROM: ${SMTP_FROM:-firmas@example.invalid}
+      SMTP_ENABLE_STARTTLS: "false"
+      SMTP_ENABLE_SSL: "true"
+      SMTP_SSL_VERIFY: "true"
+    expose: ["3000"]
+    volumes: [files:/data/docuseal, ./certs:/certs:ro, ./ops:/opt/hefesto:ro]
+  dbtools:
+    image: postgres:17-alpine
+    profiles: [tools]
+    environment: *pg
+    volumes: [./certs:/certs:ro, ./ops:/opt/hefesto:ro]
+  filetools:
+    image: postgres:17-alpine
+    profiles: [tools]
+    user: "0"
+    volumes: [files:/files]
+volumes:
+  files:
+    name: ${VOLUME_PREFIX:-hefesto-firmas}-files

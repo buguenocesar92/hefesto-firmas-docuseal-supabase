@@ -1,0 +1,20 @@
+services:
+  app:
+    environment:
+      BOOTSTRAP_MODE: "true"
+      FORCE_SSL: ""
+      APP_URL: http://localhost:8101
+      SMTP_ADDRESS: mailpit
+      SMTP_PORT: "1025"
+      SMTP_USERNAME: ""
+      SMTP_PASSWORD: ""
+      SMTP_FROM: firmas@example.invalid
+      SMTP_ENABLE_SSL: "false"
+      SMTP_ENABLE_STARTTLS: "false"
+    ports: ["127.0.0.1:8101:3000"]
+    depends_on:
+      mailpit: {condition: service_started}
+  mailpit:
+    image: axllent/mailpit:v1.31.6@sha256:23fe39e81bde596a918000b3135c0f85dc8bb4c9ea6be274b051143f3e300387
+    ports: ["127.0.0.1:8028:8025"]
+    restart: unless-stopped
