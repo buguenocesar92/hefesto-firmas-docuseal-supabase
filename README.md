@@ -27,3 +27,15 @@ No ejecutar migraciones desde dos instancias. Los flags son confirmaciones opera
 Restauración y traspaso: docs/RESTORE.md. Validación pendiente: docs/ACCEPTANCE.md. Oferta comercial y límites: docs/PRODUCTO.md. Base y volumen deben pertenecer al mismo respaldo.
 
 Estado: código/configuración revisados estáticamente. No se ejecutó Docker, migraciones, firma, correo ni restauración real en este entorno. Requiere aceptación en infraestructura de Hefesto antes de ofrecerlo en producción.
+
+## Despliegue en Coolify (MVP Hefesto)
+
+Coolify enruta el dominio a `app:3000` y Traefik gestiona TLS, por lo que el compose no publica puertos propios ni fija `name:` de proyecto. Variables nuevas o con valores por defecto nuevos respecto a la instalación privada:
+
+- `DB_NAME` — base dentro del Postgres compartido de Supabase. Por defecto `postgres` (uso original). Para Coolify usar `mvp_hefesto` u otro esquema dedicado por app.
+- `DB_SSLMODE` — modo SSL. Por defecto `verify-full` (uso original). Coolify puede fijar `disable` cuando el Postgres va por red interna de Docker sin TLS.
+- `DB_SSLROOTCERT` — ruta de la CA. Por defecto `/certs/ca.crt`. Vacía o sin definir cuando `DB_SSLMODE != verify-full`.
+- `DB_ALLOW_INTERNAL_HOST` — opcional; relaja los chequeos de `*.supabase.co` cuando se usa un host interno (no implementado en este kit, queda en `false`).
+- `VOLUME_PREFIX` — prefijo del volumen. Coolify lo asigna; conservar valor anterior sólo para reusar volumen existente.
+
+El script `scripts/coolify-check.sh` verifica que `compose.yaml` cumple el contrato y que `DB_NAME`/`DB_SSLMODE` llegan al servicio web.
