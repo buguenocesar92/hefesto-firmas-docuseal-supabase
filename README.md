@@ -42,6 +42,6 @@ Coolify enruta el dominio a `app:3000` y Traefik gestiona TLS, por lo que el com
 - `SMTP_ENABLE_SSL` — por defecto `true` (uso original SMTP 465 implícito).
 - `VOLUME_PREFIX` — prefijo del volumen. Coolify lo asigna; conservar valor anterior sólo para reusar volumen existente.
 
-El healthcheck del servicio `app` usa `wget` para consultar `http://127.0.0.1:3000/up` (la imagen `docuseal/docuseal:3.3.2` lo incluye). Si en otra versión de la imagen el binario cambia, ajustar `compose.yaml`.
+El healthcheck del servicio `app` usa `wget` para consultar `http://127.0.0.1:3000/up` enviando `X-Forwarded-Proto: https` para evitar la redirección 301 que `FORCE_SSL: "true"` impone a las peticiones HTTP planas (no hay TLS en ese puerto, sólo lo pone Traefik fuera del contenedor). El binario `wget` y la ruta `/up` se asumen presentes en la imagen `docuseal/docuseal:3.3.2` según la convención upstream; si en otra versión la imagen no los trae, ajustar `compose.yaml` (sustituir por `curl` u otro binario disponible).
 
 El script `scripts/coolify-check.sh` verifica que `compose.yaml` cumple el contrato y que `DB_NAME`/`DB_SSLMODE` llegan al servicio web.

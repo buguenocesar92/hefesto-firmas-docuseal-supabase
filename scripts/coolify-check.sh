@@ -152,6 +152,17 @@ if ! grep -q "disable" <<<"$HAS_MODE"; then
     exit 1
 fi
 
+# Regresion FORCE_SSL: el servicio 'app' define FORCE_SSL: "true" (Rails
+# devuelve 301 a HTTPS en peticiones HTTP planas). El healthcheck debe
+# simular el proxy inverso con X-Forwarded-Proto para que wget no siga la
+# redireccion (no hay TLS en 3000 dentro del contenedor) y Coolify no
+# marque el contenedor como no sano.
+APP_HEALTHCHECK="$(printf '%s' "$RENDERED" | jq -r '.services.app.healthcheck.test // [] | join(" ")')"
+if ! grep -q "X-Forwarded-Proto" <<<"$APP_HEALTHCHECK"; then
+    echo "FAIL healthcheck: el test del servicio 'app' debe incluir --header 'X-Forwarded-Proto: https' para que wget no siga la redireccion 301 de FORCE_SSL" >&2
+    exit 1
+fi
+
 # Regresion 1 (revision-1): con DB_SSLROOTCERT sin definir y DB_SSLMODE=verify-full
 # el DATABASE_URL debe llevar sslrootcert=/certs/ca.crt para que libpq no
 # busque ~/.postgresql/root.crt cuando sslmode es verify-full.
