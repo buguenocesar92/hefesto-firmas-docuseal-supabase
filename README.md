@@ -34,8 +34,14 @@ Coolify enruta el dominio a `app:3000` y Traefik gestiona TLS, por lo que el com
 
 - `DB_NAME` — base dentro del Postgres compartido de Supabase. Por defecto `postgres` (uso original). Para Coolify usar `mvp_hefesto` u otro esquema dedicado por app.
 - `DB_SSLMODE` — modo SSL. Por defecto `verify-full` (uso original). Coolify puede fijar `disable` cuando el Postgres va por red interna de Docker sin TLS.
-- `DB_SSLROOTCERT` — ruta de la CA. Por defecto `/certs/ca.crt`. Vacía o sin definir cuando `DB_SSLMODE != verify-full`.
-- `DB_ALLOW_INTERNAL_HOST` — opcional; relaja los chequeos de `*.supabase.co` cuando se usa un host interno (no implementado en este kit, queda en `false`).
+- `DB_SSLROOTCERT` — ruta de la CA. Por defecto `/certs/ca.crt`. Con `DB_SSLMODE=verify-full` (o `verify-ca`) libpq exige la CA; sin definir, el `DATABASE_URL` usa la ruta por defecto. Con `DB_SSLMODE` distinto de `verify-ca`/`verify-full`, el valor se ignora.
+- `DB_USER` — rol del Postgres. Por defecto `docuseal_app`. El preflight compara contra este valor (antes estaba hardcodeado).
+- `BOOTSTRAP_MODE` — habilita el setup privado (primer usuario crea la cuenta admin). Por defecto `false`. **Primer arranque en Coolify:** definir `INITIAL_SETUP_COMPLETE=false`, `BOOTSTRAP_MODE=true` y entrar por la UI para crear el admin; luego pasar `BOOTSTRAP_MODE=false` e `INITIAL_SETUP_COMPLETE=true`. `start.sh` sigue exigiendo HTTPS fuera de bootstrap.
+- `SMTP_READY` — por defecto `false` para no abortar el arranque. Si se pone `true`, se exigen las variables SMTP reales (el `start.sh` original bloqueaba sin esto). El correo puede quedar desactivado: con `SMTP_READY=false` los parámetros SMTP se vacían al arrancar y DocuSeal usa el delivery null.
+- `SMTP_ENABLE_STARTTLS` — por defecto `false` (uso original SMTP 465 implícito).
+- `SMTP_ENABLE_SSL` — por defecto `true` (uso original SMTP 465 implícito).
 - `VOLUME_PREFIX` — prefijo del volumen. Coolify lo asigna; conservar valor anterior sólo para reusar volumen existente.
+
+El healthcheck del servicio `app` usa `wget` para consultar `http://127.0.0.1:3000/up` (la imagen `docuseal/docuseal:3.3.2` lo incluye). Si en otra versión de la imagen el binario cambia, ajustar `compose.yaml`.
 
 El script `scripts/coolify-check.sh` verifica que `compose.yaml` cumple el contrato y que `DB_NAME`/`DB_SSLMODE` llegan al servicio web.
