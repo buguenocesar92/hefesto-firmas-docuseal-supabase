@@ -21,17 +21,17 @@ trap 'rm -f "$ENV_FILE"' EXIT
 
 cat > "$ENV_FILE" <<'EOF'
 DB_HOST=db.ejemplo.invalid
-DB_PASSWORD=x1234567890abcdef
+DB_PASSWORD=VALOR_FICTICIO_NO_SECRETO
 PUBLIC_URL=https://ejemplo.invalid
-SECRET_KEY_BASE=x1234567890abcdef0123456789abcdef0123456789abcdef0123456789abcdef
-ENCRYPTION_SECRET=x1234567890abcdef0123456789abcdef
+SECRET_KEY_BASE=VALOR_FICTICIO_NO_SECRETO
+ENCRYPTION_SECRET=VALOR_FICTICIO_NO_SECRETO
 SUPABASE_DEDICATED_CONFIRMED=true
 SUPABASE_DATA_API_DISABLED=true
 INITIAL_SETUP_COMPLETE=true
 SMTP_READY=true
 SMTP_HOST=smtp.ejemplo.invalid
-SMTP_USERNAME=x1234567890abcdef
-SMTP_PASSWORD=x1234567890abcdef
+SMTP_USERNAME=VALOR_FICTICIO_NO_SECRETO
+SMTP_PASSWORD=VALOR_FICTICIO_NO_SECRETO
 SMTP_FROM=firmas@ejemplo.invalid
 # Variables que el contrato exige parametrizar.
 DB_SSLMODE=disable
@@ -67,7 +67,7 @@ fi
 # Contrato punto 1: servicios sin 'profiles' no deben colarse.
 BAD="$(jq_render --arg root "$ROOT" '
     .services | to_entries[] |
-    select((.value.profiles // []) | length == 0) |
+    select(((.value.profiles // []) - ["default"]) | length == 0) |
     .key as $svc | .value |
     [
         (select(.ports != null)                      | "ports"),
@@ -80,7 +80,7 @@ BAD="$(jq_render --arg root "$ROOT" '
         (select(.ipc == "host")                      | "ipc:host"),
         (select((.security_opt // []) | any(test("unconfined"))) | "security_opt:unconfined"),
         (select((.volumes // []) | map(select(type == "object") | .source // "") | any(test("(^|/)run/docker\\.sock$"))) | "docker.sock"),
-        (select((.volumes // []) | map(select(type == "object") | .source // "") | any((startswith("/") and (startswith($root + "/") | not)) or test("/\\.\\./") or test("^\\./"))) | "bind_fuera_repo")
+        (select((.volumes // []) | map(select(type == "object") | .source // "") | any((startswith("/") and (startswith($root + "/") | not)) or test("/\\.\\./") or test("^\\.\\./"))) | "bind_fuera_repo")
     ] as $bad |
     if ($bad | length) > 0 then "\($svc):\($bad | join(","))" else empty end
 ')"
