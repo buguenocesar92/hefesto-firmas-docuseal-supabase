@@ -152,6 +152,15 @@ if ! grep -q "disable" <<<"$HAS_MODE"; then
     exit 1
 fi
 
+# Regresion documental SMTP_READY: el kit no valida las variables SMTP
+# (start.sh solo las vacia cuando SMTP_READY=false y SMTP_ADDRESS tiene
+# default 'mailpit'). El README no debe afirmar que SMTP_READY=true
+# 'exige' las variables reales.
+if grep -F "se exigen las variables SMTP reales" "$ROOT/README.md" >/dev/null 2>&1; then
+    echo "FAIL README: SMTP_READY=true no exige variables SMTP reales; el kit no las valida" >&2
+    exit 1
+fi
+
 # Regresion FORCE_SSL: el servicio 'app' define FORCE_SSL: "true" (Rails
 # devuelve 301 a HTTPS en peticiones HTTP planas). El healthcheck debe
 # simular el proxy inverso con X-Forwarded-Proto para que wget no siga la
