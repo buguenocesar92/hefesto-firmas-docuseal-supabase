@@ -27,3 +27,21 @@ No ejecutar migraciones desde dos instancias. Los flags son confirmaciones opera
 Restauración y traspaso: docs/RESTORE.md. Validación pendiente: docs/ACCEPTANCE.md. Oferta comercial y límites: docs/PRODUCTO.md. Base y volumen deben pertenecer al mismo respaldo.
 
 Estado: código/configuración revisados estáticamente. No se ejecutó Docker, migraciones, firma, correo ni restauración real en este entorno. Requiere aceptación en infraestructura de Hefesto antes de ofrecerlo en producción.
+
+## Despliegue en Coolify (MVP Hefesto)
+
+Coolify enruta el dominio a `app:3000` y Traefik gestiona TLS, por lo que el compose no publica puertos propios ni fija `name:` de proyecto. Variables nuevas o con valores por defecto nuevos respecto a la instalación privada:
+
+- `DB_NAME` — base dentro del Postgres compartido de Supabase. Por defecto `postgres` (uso original). Para Coolify usar `mvp_hefesto` u otro esquema dedicado por app.
+- `DB_SSLMODE` — modo SSL. Por defecto `verify-full` (uso original). Coolify puede fijar `disable` cuando el Postgres va por red interna de Docker sin TLS.
+- `DB_SSLROOTCERT` — ruta de la CA. Por defecto `/certs/ca.crt`. Con `DB_SSLMODE=verify-full` (o `verify-ca`) libpq exige la CA; sin definir, el `DATABASE_URL` usa la ruta por defecto. Con `DB_SSLMODE` distinto de `verify-ca`/`verify-full`, el valor se ignora.
+- `DB_USER` — rol del Postgres. Por defecto `docuseal_app`. El preflight compara contra este valor (antes estaba hardcodeado).
+- `BOOTSTRAP_MODE` — habilita el setup privado (primer usuario crea la cuenta admin). Por defecto `false`. **Primer arranque en Coolify:** definir `INITIAL_SETUP_COMPLETE=false`, `BOOTSTRAP_MODE=true` y entrar por la UI para crear el admin; luego pasar `BOOTSTRAP_MODE=false` e `INITIAL_SETUP_COMPLETE=true`. `start.sh` sigue exigiendo HTTPS fuera de bootstrap.
+- `SMTP_READY` — por defecto `false` para no abortar el arranque. Con `false` los parámetros SMTP se vacían al arrancar y DocuSeal usa el delivery null (correo desactivado). Con `true` se usan `SMTP_HOST`, `SMTP_USERNAME`, `SMTP_PASSWORD` y `SMTP_FROM` tal como estén definidos en `.env`; el kit no los valida (DocuSeal recibe además `SMTP_ADDRESS` con default `mailpit`, `SMTP_PORT` con default `465` y el resto de variables SMTP_COMPOSE_* ya documentadas).
+- `SMTP_ENABLE_STARTTLS` — por defecto `false` (uso original SMTP 465 implícito).
+- `SMTP_ENABLE_SSL` — por defecto `true` (uso original SMTP 465 implícito).
+- `VOLUME_PREFIX` — prefijo del volumen. Coolify lo asigna; conservar valor anterior sólo para reusar volumen existente.
+
+El healthcheck del servicio `app` usa `wget` para consultar `http://127.0.0.1:3000/up` enviando `X-Forwarded-Proto: https` para evitar la redirección 301 que `FORCE_SSL: "true"` impone a las peticiones HTTP planas (no hay TLS en ese puerto, sólo lo pone Traefik fuera del contenedor). El binario `wget` y la ruta `/up` se asumen presentes en la imagen `docuseal/docuseal:3.3.2` según la convención upstream; si en otra versión la imagen no los trae, ajustar `compose.yaml` (sustituir por `curl` u otro binario disponible).
+
+El script `scripts/coolify-check.sh` verifica que `compose.yaml` cumple el contrato y que `DB_NAME`/`DB_SSLMODE` llegan al servicio web.
